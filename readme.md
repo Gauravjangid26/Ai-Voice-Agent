@@ -1,5 +1,4 @@
-
-'''# Full-Duplex AI Voice Agent with Deepgram STT, Google Gemini LLM, and pyttsx3 TTS'''
+### Full-Duplex AI Voice Agent with Deepgram STT, Google Gemini LLM, and pyttsx3 TTS
 
 
 This project is a real-time full-duplex voice assistant built in Python. It continuously listens to your voice using **Deepgram streaming Speech-to-Text (STT)**, sends your speech transcripts to **Google Gemini 2.5 Flash Lite** LLM for natural language understanding and response generation, and then speaks the response back to you using **offline pyttsx3 Text-to-Speech (TTS)**. The system supports interruption, allowing it to stop speaking and respond immediately to new user input.
