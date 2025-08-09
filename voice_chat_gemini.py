@@ -1,96 +1,38 @@
+# full_duplex_agent.py
 import asyncio
-import os
-import logging
-from dotenv import load_dotenv
-from audio.stt import stream_transcripts
-from audio.tts import speak, stop_speech
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+import threading
+from tts_free import speak, stop_speaking
+from stt import start_streaming_transcription
+from llm import llm
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+# A lock to protect TTS calls and allow safe interruption
+tts_lock = threading.Lock()
+current_tts_thread = None
 
-# Load environment variables
-load_dotenv()
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-if not GOOGLE_API_KEY:
-    raise ValueError("Missing GOOGLE_API_KEY")
+async def on_final_transcript(text: str):
+    global current_tts_thread
 
-# Initialize LLM
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GOOGLE_API_KEY)
+    print(f"🗣️ Recognized: {text}")
 
-# State tracking
-playback_task = None
-conversation_history = []
+    # Stop any ongoing TTS before speaking new response
+    with tts_lock:
+        if current_tts_thread and current_tts_thread.is_alive():
+            print("⏹️ Stopping ongoing speech...")
+            stop_speaking()
+            current_tts_thread.join()
+        #llm
+        response=llm.invoke(text)
 
-async def conversation_loop():
-    global playback_task, conversation_history
-    queue = asyncio.Queue()
-    mic = None
-    dg_connection = None
-
-    try:
-        mic, dg_connection = await stream_transcripts(queue)
-        
-        while True:
-            sentence = await queue.get()
-            logging.info(f"🧍 You said: {sentence}")
-
-            # Handle exit commands
-            if sentence.lower().strip() in ["quit", "exit", "stop"]:
-                logging.info("👋 Exiting.")
-                break
-
-            # Interrupt TTS if user speaks, with a small delay to allow short responses
-            if playback_task:
-                await asyncio.sleep(0.1)  # Brief delay to avoid immediate interruption
-                if not queue.empty():  # Check if new input is waiting
-                    stop_speech()
-                    playback_task.cancel()
-                    playback_task = None
-
-            # Process with Gemini
-            logging.info("🤖 Gemini is thinking...")
-            try:
-                conversation_history.append(HumanMessage(content=sentence))
-                response = await llm.ainvoke(conversation_history)
-                reply = response.content
-                logging.info(f"🧠 Gemini: {reply}")
-                conversation_history.append(AIMessage(content=reply))
-                # Limit history to avoid excessive memory use
-                if len(conversation_history) > 10:
-                    conversation_history = conversation_history[-10:]
-            except Exception as e:
-                logging.error(f"Gemini error: {e}")
-                reply = "Sorry, I couldn't process that."
-                logging.info(f"🧠 Gemini: {reply}")
-                conversation_history.append(AIMessage(content=reply))
-
-            # Speak response
-            if reply.strip():
-                playback_task = asyncio.create_task(speak(reply))
-
-    except asyncio.CancelledError:
-        pass
-    except Exception as e:
-        logging.error(f"Main error: {e}")
-    finally:
-        if mic:
-            mic.finish()
-        if dg_connection:
-            await dg_connection.finish()
-        logging.info("🛑 Microphone stopped.")
-        stop_speech()
-        if playback_task:
-            playback_task.cancel()
+        # Start new TTS thread to speak response asynchronously
+        current_tts_thread = speak(f"You said: {response}")
 
 async def main():
-    try:
-        await conversation_loop()
-    except KeyboardInterrupt:
-        logging.info("Shutting down...")
-    except Exception as e:
-        logging.error(f"Main error: {e}")
+    # Run the Deepgram streaming transcription with the callback
+    await start_streaming_transcription(on_final_transcript_callback=on_final_transcript)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        print("🚀 Starting full duplex voice agent...")
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n🛑 Voice agent stopped by user.")
