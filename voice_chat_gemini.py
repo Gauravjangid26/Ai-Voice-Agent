@@ -1,8 +1,8 @@
 # full_duplex_agent.py
 import asyncio
 import threading
-from tts_free import speak, stop_speaking
-from stt import start_streaming_transcription
+from audio.tts import speak, stop_speaking
+from audio.stt import start_streaming_transcription
 from llm import llm
 
 # A lock to protect TTS calls and allow safe interruption
