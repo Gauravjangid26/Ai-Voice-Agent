@@ -1,1 +1,7 @@
+python-dotenv>=1.0.0
+deepgram-sdk>=1.2.0
+langchain-google-genai>=0.0.9
+openai>=0.27.0
+pyttsx3>=2.90
+asyncio   # comes built-in with Python 3.7+, so usually no need to install
 
