@@ -1,0 +1,13 @@
+from dotenv import load_dotenv
+import os
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+load_dotenv()
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    raise Exception("GOOGLE_API_KEY not found in environment variables")
+
+# ✅ Set up Gemini model
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", google_api_key=GOOGLE_API_KEY)
+print(llm.invoke("hi").content)
